@@ -6,15 +6,8 @@ pub struct INode {
     right: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct INodes {
-    nodes: Vec<INode>,
-    primary: usize,
-    secondary: usize,
-}
-
-impl INodes {
-    pub fn new(primary: usize, secondary: usize) -> INodes {
+impl INode {
+    pub fn make_nodes(primary: usize, secondary: usize) -> INodes {
         let mut inodes = INodes {
             nodes: vec![Default::default(); primary + secondary + 2],
             primary,
@@ -23,6 +16,13 @@ impl INodes {
         inodes.init_links();
         inodes
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct INodes {
+    nodes: Vec<INode>,
+    primary: usize,
+    secondary: usize,
 }
 
 impl IDance for INodes {
@@ -65,15 +65,8 @@ pub struct INodeM {
     bound: isize,
 }
 
-#[derive(Debug)]
-pub struct INodesM {
-    nodes: Vec<INodeM>,
-    primary: usize,
-    secondary: usize,
-}
-
-impl INodesM {
-    pub fn new(
+impl INodeM {
+    pub fn make_nodes(
         primary: usize,
         secondary: usize,
         ms: impl IntoIterator<Item = (isize, isize)>,
@@ -91,6 +84,13 @@ impl INodesM {
         inodes.init_links();
         inodes
     }
+}
+
+#[derive(Debug)]
+pub struct INodesM {
+    nodes: Vec<INodeM>,
+    primary: usize,
+    secondary: usize,
 }
 
 impl IDance for INodesM {
@@ -402,7 +402,7 @@ mod tests {
         let ms = repeat_n((1, 1), 8)
             .chain(repeat_n((2, 2), 4))
             .chain(repeat_n((0, 2), 12));
-        let items = INodesM::new(24, 0, ms);
+        let items = INodeM::make_nodes(24, 0, ms);
         let mut os: Vec<Vec<usize>> = Vec::new();
         for i in 0..2 {
             for j in 0..2 {
@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_nodes() {
-        let items = INodes::new(3, 2);
+        let items = INode::make_nodes(3, 2);
         assert!(items.nodes == table_2_items(), "incorrect items");
         let opt_spec: Vec<Vec<(usize, isize)>> = vec![
             vec![(0, 0), (1, 0), (3, 0), (4, 1)],
