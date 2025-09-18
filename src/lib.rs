@@ -12,6 +12,7 @@ where
     o: Vec<isize>,
     l: usize,
     i: usize,
+    updates: usize,
     restart: bool,
 }
 
@@ -29,6 +30,7 @@ where
             o: Vec::new(),
             l: 0,
             i: 0,
+            updates: 0,
             restart: false,
         }
     }
@@ -86,6 +88,8 @@ where
             loop {
                 // M9
                 if l == 0 {
+		    self.l = l;
+		    self.i = i;
                     return false;
                 }
                 l -= 1;
@@ -153,7 +157,7 @@ where
                 return false;
                 // go to M8
             }
-        // go to M6
+            // go to M6
         } else if *self.opts.olen(i)
             <= (self.items.bound(i) - self.items.slack(i))
         {
@@ -218,7 +222,7 @@ where
     }
 
     fn cover(&mut self, i: usize) {
-        // TODO: increment updates
+        self.updates += 1;
         let mut p = *self.opts.dlink(i);
         while p != i {
             self.hide(p);
@@ -254,7 +258,7 @@ where
                 if self.opts.get_color(q) >= 0 {
                     *self.opts.dlink(u) = d;
                     *self.opts.ulink(d) = u;
-                    // TODO: increment updates
+                    self.updates += 1;
                     *self.opts.olen(x as usize) -= 1;
                 }
                 q += 1;
@@ -373,11 +377,11 @@ pub trait IDance {
     fn llink(&mut self, i: usize) -> &mut usize;
     fn rlink(&mut self, i: usize) -> &mut usize;
 
-    fn bound(&self, i: usize) -> isize;
+    fn bound(&mut self, i: usize) -> isize;
     fn dec_bound(&mut self, i: usize) -> isize;
     fn inc_bound(&mut self, i: usize) -> isize;
-    fn slack(&self, i: usize) -> isize;
-    fn branch_factor(&self, i: usize) -> isize;
+    fn slack(&mut self, i: usize) -> isize;
+    fn branch_factor(&mut self, i: usize) -> isize;
 
     fn init_links(&mut self) {
         let n1 = self.primary();
@@ -408,7 +412,7 @@ pub trait ODance {
     fn ulink(&mut self, i: usize) -> &mut usize;
     fn dlink(&mut self, i: usize) -> &mut usize;
 
-    fn get_color(&self, i: usize) -> isize;
+    fn get_color(&mut self, i: usize) -> isize;
     fn set_color(&mut self, i: usize, c: isize);
 
     // TODO: allow for randomization

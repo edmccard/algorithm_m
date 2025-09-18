@@ -25,34 +25,55 @@ pub struct INodes {
     secondary: usize,
 }
 
+impl INodes {
+    fn get_node(&mut self, i: usize) -> &mut INode {
+        // &mut self.nodes[i]
+        unsafe { self.nodes.get_unchecked_mut(i) }
+    }
+}
+
 impl IDance for INodes {
+    #[inline(always)]
     fn primary(&self) -> usize {
         self.primary
     }
+
+    #[inline(always)]
     fn secondary(&self) -> usize {
         self.secondary
     }
 
+    #[inline(always)]
     fn llink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.nodes.get_unchecked_mut(i).left }
+        &mut self.get_node(i).left
     }
+    #[inline(always)]
     fn rlink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.nodes.get_unchecked_mut(i).right }
+        &mut self.get_node(i).right
     }
 
-    fn bound(&self, _i: usize) -> isize {
+    #[inline(always)]
+    fn bound(&mut self, _i: usize) -> isize {
         0
     }
+
+    #[inline(always)]
     fn dec_bound(&mut self, _i: usize) -> isize {
         0
     }
+
+    #[inline(always)]
     fn inc_bound(&mut self, _i: usize) -> isize {
         1
     }
-    fn slack(&self, _i: usize) -> isize {
+
+    #[inline(always)]
+    fn slack(&mut self, _i: usize) -> isize {
         0
     }
-    fn branch_factor(&self, _i: usize) -> isize {
+
+    #[inline(always)]
+    fn branch_factor(&mut self, _i: usize) -> isize {
         1
     }
 }
@@ -93,46 +114,52 @@ pub struct INodesM {
     secondary: usize,
 }
 
+impl INodesM {
+    fn get_node(&mut self, i: usize) -> &mut INodeM {
+        unsafe { self.nodes.get_unchecked_mut(i) }
+    }
+}
+
 impl IDance for INodesM {
     fn primary(&self) -> usize {
         self.primary
     }
+
     fn secondary(&self) -> usize {
         self.secondary
     }
 
     fn llink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.nodes.get_unchecked_mut(i).left }
-    }
-    fn rlink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.nodes.get_unchecked_mut(i).right }
+        &mut self.get_node(i).left
     }
 
-    fn bound(&self, i: usize) -> isize {
-        unsafe { self.nodes.get_unchecked(i).bound }
+    fn rlink(&mut self, i: usize) -> &mut usize {
+        &mut self.get_node(i).right
     }
+
+    fn bound(&mut self, i: usize) -> isize {
+        self.get_node(i).bound
+    }
+
     fn dec_bound(&mut self, i: usize) -> isize {
-        unsafe {
-            let node = self.nodes.get_unchecked_mut(i);
-            node.bound -= 1;
-            node.bound
-        }
+        let node = self.get_node(i);
+        node.bound -= 1;
+        node.bound
     }
+
     fn inc_bound(&mut self, i: usize) -> isize {
-        unsafe {
-            let node = self.nodes.get_unchecked_mut(i);
-            node.bound += 1;
-            node.bound
-        }
+        let node = self.get_node(i);
+        node.bound += 1;
+        node.bound
     }
-    fn slack(&self, i: usize) -> isize {
-        unsafe { self.nodes.get_unchecked(i).slack }
+
+    fn slack(&mut self, i: usize) -> isize {
+        self.get_node(i).slack
     }
-    fn branch_factor(&self, i: usize) -> isize {
-        unsafe {
-            let node = self.nodes.get_unchecked(i);
-            node.bound.saturating_sub(node.slack)
-        }
+
+    fn branch_factor(&mut self, i: usize) -> isize {
+        let node = self.get_node(i);
+        node.bound.saturating_sub(node.slack)
     }
 }
 
@@ -158,32 +185,54 @@ impl ONode {
         m: usize,
         l: usize,
         opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = usize>>,
-    ) -> Vec<ONode> {
-        let mut nodes = vec![Default::default(); l + m + n + 2];
+    ) -> ONodes {
+        let mut nodes =
+            ONodes { nodes: vec![Default::default(); l + m + n + 2] };
         nodes.init_links(n, opt_spec);
         nodes
     }
 }
 
-impl ODance for Vec<ONode> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ONodes {
+    nodes: Vec<ONode>,
+}
+
+impl ONodes {
+    fn get_node(&mut self, i: usize) -> &mut ONode {
+        unsafe { self.nodes.get_unchecked_mut(i) }
+    }
+}
+
+impl ODance for ONodes {
     type Spec = usize;
 
+    #[inline(always)]
     fn olen(&mut self, i: usize) -> &mut isize {
-        unsafe { &mut self.get_unchecked_mut(i).hdr_info }
-    }
-    fn top(&mut self, i: usize) -> &mut isize {
-        unsafe { &mut self.get_unchecked_mut(i).hdr_info }
-    }
-    fn ulink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.get_unchecked_mut(i).up }
-    }
-    fn dlink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.get_unchecked_mut(i).down }
+        &mut self.get_node(i).hdr_info
     }
 
-    fn get_color(&self, _i: usize) -> isize {
+    #[inline(always)]
+    fn top(&mut self, i: usize) -> &mut isize {
+        &mut self.get_node(i).hdr_info
+    }
+
+    #[inline(always)]
+    fn ulink(&mut self, i: usize) -> &mut usize {
+        &mut self.get_node(i).up
+    }
+
+    #[inline(always)]
+    fn dlink(&mut self, i: usize) -> &mut usize {
+        &mut self.get_node(i).down
+    }
+
+    #[inline(always)]
+    fn get_color(&mut self, _i: usize) -> isize {
         0
     }
+
+    #[inline(always)]
     fn set_color(&mut self, _i: usize, _c: isize) {}
 }
 
@@ -210,36 +259,46 @@ impl ONodeC {
         m: usize,
         l: usize,
         opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = (usize, isize)>>,
-    ) -> Vec<ONodeC> {
-        let mut nodes = vec![Default::default(); l + m + n + 2];
+    ) -> ONodesC {
+        let mut nodes =
+            ONodesC { nodes: vec![Default::default(); l + m + n + 2] };
         nodes.init_links(n, opt_spec);
         nodes
     }
 }
 
-impl ODance for Vec<ONodeC> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ONodesC {
+    nodes: Vec<ONodeC>,
+}
+
+impl ONodesC {
+    fn get_node(&mut self, i: usize) -> &mut ONodeC {
+        unsafe { self.nodes.get_unchecked_mut(i) }
+    }
+}
+
+impl ODance for ONodesC {
     type Spec = (usize, isize);
 
     fn olen(&mut self, i: usize) -> &mut isize {
-        unsafe { &mut self.get_unchecked_mut(i).hdr_info }
+        &mut self.get_node(i).hdr_info
     }
     fn top(&mut self, i: usize) -> &mut isize {
-        unsafe { &mut self.get_unchecked_mut(i).hdr_info }
+        &mut self.get_node(i).hdr_info
     }
     fn ulink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.get_unchecked_mut(i).up }
+        &mut self.get_node(i).up
     }
     fn dlink(&mut self, i: usize) -> &mut usize {
-        unsafe { &mut self.get_unchecked_mut(i).down }
+        &mut self.get_node(i).down
     }
 
-    fn get_color(&self, i: usize) -> isize {
-        unsafe { self.get_unchecked(i).color }
+    fn get_color(&mut self, i: usize) -> isize {
+        self.get_node(i).color
     }
     fn set_color(&mut self, i: usize, c: isize) {
-        unsafe {
-            self.get_unchecked_mut(i).color = c;
-        }
+        self.get_node(i).color = c;
     }
 }
 
@@ -265,39 +324,41 @@ mod tests {
             primary: 7,
             secondary: 0,
         };
-        let opts = vec![
-            ONode { hdr_info: 0, up: 0, down: 0 },
-            ONode { hdr_info: 2, up: 20, down: 12 },
-            ONode { hdr_info: 2, up: 24, down: 16 },
-            ONode { hdr_info: 2, up: 17, down: 9 },
-            ONode { hdr_info: 3, up: 27, down: 13 },
-            ONode { hdr_info: 2, up: 28, down: 10 },
-            ONode { hdr_info: 2, up: 22, down: 18 },
-            ONode { hdr_info: 3, up: 29, down: 14 },
-            ONode { hdr_info: 0, up: 0, down: 10 },
-            ONode { hdr_info: 3, up: 3, down: 17 },
-            ONode { hdr_info: 5, up: 5, down: 28 },
-            ONode { hdr_info: -1, up: 9, down: 14 },
-            ONode { hdr_info: 1, up: 1, down: 20 },
-            ONode { hdr_info: 4, up: 4, down: 21 },
-            ONode { hdr_info: 7, up: 7, down: 25 },
-            ONode { hdr_info: -2, up: 12, down: 18 },
-            ONode { hdr_info: 2, up: 2, down: 24 },
-            ONode { hdr_info: 3, up: 9, down: 3 },
-            ONode { hdr_info: 6, up: 6, down: 22 },
-            ONode { hdr_info: -3, up: 16, down: 22 },
-            ONode { hdr_info: 1, up: 12, down: 1 },
-            ONode { hdr_info: 4, up: 13, down: 27 },
-            ONode { hdr_info: 6, up: 18, down: 6 },
-            ONode { hdr_info: -4, up: 20, down: 25 },
-            ONode { hdr_info: 2, up: 16, down: 2 },
-            ONode { hdr_info: 7, up: 14, down: 29 },
-            ONode { hdr_info: -5, up: 24, down: 29 },
-            ONode { hdr_info: 4, up: 21, down: 4 },
-            ONode { hdr_info: 5, up: 10, down: 5 },
-            ONode { hdr_info: 7, up: 25, down: 7 },
-            ONode { hdr_info: -6, up: 27, down: 0 },
-        ];
+        let opts = ONodes {
+            nodes: vec![
+                ONode { hdr_info: 0, up: 0, down: 0 },
+                ONode { hdr_info: 2, up: 20, down: 12 },
+                ONode { hdr_info: 2, up: 24, down: 16 },
+                ONode { hdr_info: 2, up: 17, down: 9 },
+                ONode { hdr_info: 3, up: 27, down: 13 },
+                ONode { hdr_info: 2, up: 28, down: 10 },
+                ONode { hdr_info: 2, up: 22, down: 18 },
+                ONode { hdr_info: 3, up: 29, down: 14 },
+                ONode { hdr_info: 0, up: 0, down: 10 },
+                ONode { hdr_info: 3, up: 3, down: 17 },
+                ONode { hdr_info: 5, up: 5, down: 28 },
+                ONode { hdr_info: -1, up: 9, down: 14 },
+                ONode { hdr_info: 1, up: 1, down: 20 },
+                ONode { hdr_info: 4, up: 4, down: 21 },
+                ONode { hdr_info: 7, up: 7, down: 25 },
+                ONode { hdr_info: -2, up: 12, down: 18 },
+                ONode { hdr_info: 2, up: 2, down: 24 },
+                ONode { hdr_info: 3, up: 9, down: 3 },
+                ONode { hdr_info: 6, up: 6, down: 22 },
+                ONode { hdr_info: -3, up: 16, down: 22 },
+                ONode { hdr_info: 1, up: 12, down: 1 },
+                ONode { hdr_info: 4, up: 13, down: 27 },
+                ONode { hdr_info: 6, up: 18, down: 6 },
+                ONode { hdr_info: -4, up: 20, down: 25 },
+                ONode { hdr_info: 2, up: 16, down: 2 },
+                ONode { hdr_info: 7, up: 14, down: 29 },
+                ONode { hdr_info: -5, up: 24, down: 29 },
+                ONode { hdr_info: 4, up: 21, down: 4 },
+                ONode { hdr_info: 5, up: 10, down: 5 },
+                ONode { hdr_info: 7, up: 25, down: 7 },
+                ONode { hdr_info: -6, up: 27, down: 0 },
+            ],
+        };
         let items_x = items.clone();
         let opts_x = opts.clone();
         let mut chooser = Mrv {};
@@ -309,6 +370,10 @@ mod tests {
         assert!(!problem.next_solution(&mut chooser), "too many solutions");
         assert!(problem.items == items_x, "items not backtracked");
         assert!(problem.opts == opts_x, "options not backtracked");
+        assert!(
+            problem.l == 0 && problem.restart == false,
+            "initial state not restored"
+        );
     }
 
     // TAoCP 4B p. 89
@@ -325,52 +390,56 @@ mod tests {
     }
 
     // TAoCP 4B p. 89
-    fn table_2_opts() -> Vec<ONodeC> {
-        vec![
-            ONodeC { hdr_info: 0, up: 0, down: 0, color: 0 },
-            ONodeC { hdr_info: 3, up: 17, down: 7, color: 0 },
-            ONodeC { hdr_info: 2, up: 20, down: 8, color: 0 },
-            ONodeC { hdr_info: 2, up: 23, down: 13, color: 0 },
-            ONodeC { hdr_info: 4, up: 21, down: 9, color: 0 },
-            ONodeC { hdr_info: 3, up: 24, down: 10, color: 0 },
-            ONodeC { hdr_info: 0, up: 0, down: 10, color: 0 },
-            ONodeC { hdr_info: 1, up: 1, down: 12, color: 0 },
-            ONodeC { hdr_info: 2, up: 2, down: 20, color: 0 },
-            ONodeC { hdr_info: 4, up: 4, down: 14, color: 0 },
-            ONodeC { hdr_info: 5, up: 5, down: 15, color: 1 },
-            ONodeC { hdr_info: -1, up: 7, down: 15, color: 0 },
-            ONodeC { hdr_info: 1, up: 7, down: 17, color: 0 },
-            ONodeC { hdr_info: 3, up: 3, down: 23, color: 0 },
-            ONodeC { hdr_info: 4, up: 9, down: 18, color: 1 },
-            ONodeC { hdr_info: 5, up: 10, down: 24, color: 0 },
-            ONodeC { hdr_info: -2, up: 12, down: 18, color: 0 },
-            ONodeC { hdr_info: 1, up: 12, down: 1, color: 0 },
-            ONodeC { hdr_info: 4, up: 14, down: 21, color: 2 },
-            ONodeC { hdr_info: -3, up: 17, down: 21, color: 0 },
-            ONodeC { hdr_info: 2, up: 8, down: 2, color: 0 },
-            ONodeC { hdr_info: 4, up: 18, down: 4, color: 1 },
-            ONodeC { hdr_info: -4, up: 20, down: 24, color: 0 },
-            ONodeC { hdr_info: 3, up: 13, down: 3, color: 0 },
-            ONodeC { hdr_info: 5, up: 15, down: 5, color: 2 },
-            ONodeC { hdr_info: -5, up: 23, down: 0, color: 0 },
-        ]
+    fn table_2_opts() -> ONodesC {
+        ONodesC {
+            nodes: vec![
+                ONodeC { hdr_info: 0, up: 0, down: 0, color: 0 },
+                ONodeC { hdr_info: 3, up: 17, down: 7, color: 0 },
+                ONodeC { hdr_info: 2, up: 20, down: 8, color: 0 },
+                ONodeC { hdr_info: 2, up: 23, down: 13, color: 0 },
+                ONodeC { hdr_info: 4, up: 21, down: 9, color: 0 },
+                ONodeC { hdr_info: 3, up: 24, down: 10, color: 0 },
+                ONodeC { hdr_info: 0, up: 0, down: 10, color: 0 },
+                ONodeC { hdr_info: 1, up: 1, down: 12, color: 0 },
+                ONodeC { hdr_info: 2, up: 2, down: 20, color: 0 },
+                ONodeC { hdr_info: 4, up: 4, down: 14, color: 0 },
+                ONodeC { hdr_info: 5, up: 5, down: 15, color: 1 },
+                ONodeC { hdr_info: -1, up: 7, down: 15, color: 0 },
+                ONodeC { hdr_info: 1, up: 7, down: 17, color: 0 },
+                ONodeC { hdr_info: 3, up: 3, down: 23, color: 0 },
+                ONodeC { hdr_info: 4, up: 9, down: 18, color: 1 },
+                ONodeC { hdr_info: 5, up: 10, down: 24, color: 0 },
+                ONodeC { hdr_info: -2, up: 12, down: 18, color: 0 },
+                ONodeC { hdr_info: 1, up: 12, down: 1, color: 0 },
+                ONodeC { hdr_info: 4, up: 14, down: 21, color: 2 },
+                ONodeC { hdr_info: -3, up: 17, down: 21, color: 0 },
+                ONodeC { hdr_info: 2, up: 8, down: 2, color: 0 },
+                ONodeC { hdr_info: 4, up: 18, down: 4, color: 1 },
+                ONodeC { hdr_info: -4, up: 20, down: 24, color: 0 },
+                ONodeC { hdr_info: 3, up: 13, down: 3, color: 0 },
+                ONodeC { hdr_info: 5, up: 15, down: 5, color: 2 },
+                ONodeC { hdr_info: -5, up: 23, down: 0, color: 0 },
+            ],
+        }
     }
 
     // The color field of the header nodes is set but never read
     // except for debugging, so it does not need to be considered
     // when verifying that the nodes are returned to their initial
     // values.
-    struct ONodesC(usize, Vec<ONodeC>);
-    impl PartialEq for ONodesC {
+    struct ONodesCEq(usize, ONodesC);
+    impl PartialEq for ONodesCEq {
         fn eq(&self, other: &Self) -> bool {
             if !self.0 == other.0 {
                 return false;
             }
             let n = self.0 + 2;
-            let a_hdrs = self.1[..n].iter().map(|o| (o.hdr_info, o.up, o.down));
-            let b_hdrs =
-                other.1[..n].iter().map(|o| (o.hdr_info, o.up, o.down));
-            self.1[n..] == other.1[n..] && a_hdrs.eq(b_hdrs)
+            let a_hdrs =
+                self.1.nodes[..n].iter().map(|o| (o.hdr_info, o.up, o.down));
+            let b_hdrs = other.1.nodes[..n]
+                .iter()
+                .map(|o| (o.hdr_info, o.up, o.down));
+            self.1.nodes[n..] == other.1.nodes[n..] && a_hdrs.eq(b_hdrs)
         }
     }
 
@@ -390,7 +459,7 @@ mod tests {
         assert!(!problem.next_solution(&mut chooser), "too many solutions");
         assert!(problem.items == items_x, "items not backtracked");
         assert!(
-            ONodesC(5, problem.opts) == ONodesC(5, opts_x),
+            ONodesCEq(5, problem.opts) == ONodesCEq(5, opts_x),
             "options not backtracked"
         );
     }
