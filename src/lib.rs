@@ -12,7 +12,7 @@ where
     o: Vec<isize>,
     l: usize,
     i: usize,
-    updates: usize,
+    updates: isize,
     restart: bool,
 }
 
@@ -38,6 +38,9 @@ where
     pub fn next_solution<C: Choose<I, O>>(&mut self, chooser: &mut C) -> bool {
         let mut l = self.l;
         let mut i = self.i;
+        if self.updates < 0 {
+            self.updates = 0;
+        }
 
         let n = self.items.primary() + self.items.secondary();
         let n1 = self.items.primary();
@@ -88,8 +91,8 @@ where
             loop {
                 // M9
                 if l == 0 {
-		    self.l = l;
-		    self.i = i;
+                    self.l = l;
+                    self.updates = -self.updates;
                     return false;
                 }
                 l -= 1;
@@ -148,6 +151,10 @@ where
             // Internal option indexes are 1-based
             self.o.push(-*self.opts.top(r) - 1);
         }
+    }
+
+    pub fn get_updates(&self) -> isize {
+        self.updates.abs()
     }
 
     fn try_item(&mut self, i: usize, xl: usize, n1: usize) -> bool {
@@ -454,7 +461,6 @@ pub trait ODance {
 
 // TODO: preferences and randomization
 pub trait Choose<I: IDance, O: ODance> {
-    // TODO: return the score for the item
     fn choose(&mut self, items: &mut I, opts: &mut O) -> usize;
 }
 
@@ -466,14 +472,120 @@ impl<I: IDance, O: ODance> Choose<I, O> for Mrv {
         let mut p = *items.rlink(0);
         let mut i = p;
         while p != 0 {
-            if *opts.olen(p) == 0 {
-                break;
-            } else if *opts.olen(p) < min {
-                min = *opts.olen(p);
+            let curr =
+                (*opts.olen(p) + 1).saturating_sub(items.branch_factor(p));
+            if curr < min
+            // TODO: check if this always increases update count
+            // || (curr == min && items.slack(p) < items.slack(i))
+            // || (curr == min
+            //     && items.slack(p) == items.slack(i)
+            //     && *opts.olen(p) > *opts.olen(i))
+            {
+                min = curr;
                 i = p;
             }
             p = *items.rlink(p);
         }
         i
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::links::*;
+    use super::*;
+
+    fn verify_solutions<I, O>(items: I, opts: O, expected: Vec<Vec<isize>>)
+    where
+        I: IDance + Clone + std::fmt::Debug + PartialEq,
+        O: ODance + Clone + std::fmt::Debug + PartialEq,
+    {
+        let items_init = items.clone();
+        let opts_init = opts.clone();
+        let mut chooser = Mrv {};
+        let mut problem = Problem::new(items, opts);
+        let mut solutions: Vec<Vec<isize>> = Vec::new();
+        let mut i: usize = 0;
+        while problem.next_solution(&mut chooser) {
+            assert!(i <= expected.len(), "too many solutions");
+            problem.find_options();
+            problem.o.sort();
+            solutions.push(problem.o.clone());
+            i += 1;
+        }
+        solutions.sort();
+        let mut expected = expected;
+        expected.sort();
+        assert_eq!(solutions, expected, "wrong solutions");
+        assert_eq!(problem.items, items_init, "items not backtracked");
+        assert_eq!(problem.opts, opts_init, "options not backtracked");
+        assert!(
+            problem.l == 0 && problem.restart == false,
+            "initial state not restored"
+        );
+    }
+
+    #[test]
+    // TAocp Vol. 4B p. 66
+    fn test_xc() {
+        let items = INode::make_nodes(7, 0);
+        let opt_spec: Vec<Vec<usize>> = vec![
+            vec![2, 4],
+            vec![0, 3, 6],
+            vec![1, 2, 5],
+            vec![0, 3, 5],
+            vec![1, 6],
+            vec![3, 4, 6],
+        ];
+        let opts = ONode::make_nodes(7, 6, 16, opt_spec);
+        verify_solutions(items, opts, vec![vec![0, 3, 4]]);
+    }
+
+    #[test]
+    // TAocp Vol. 4B p. 89
+    fn test_xcc() {
+        let items = INode::make_nodes(3, 2);
+        let opt_spec: Vec<Vec<(usize, isize)>> = vec![
+            vec![(0, 0), (1, 0), (3, 0), (4, 1)],
+            vec![(0, 0), (2, 0), (3, 1), (4, 0)],
+            vec![(0, 0), (3, 2)],
+            vec![(1, 0), (3, 1)],
+            vec![(2, 0), (4, 2)],
+        ];
+        let opts = ONodeC::make_nodes(5, 5, 14, opt_spec);
+        verify_solutions(items, opts, vec![vec![1, 3]]);
+    }
+
+    #[test]
+    // https://cs.stanford.edu/~knuth/papers/Xqueens-and-Xqueenons.pdf
+    fn test_mc() {
+        use core::iter::repeat_n;
+        let ms = repeat_n((1, 1), 8)
+            .chain(repeat_n((2, 2), 4))
+            .chain(repeat_n((0, 2), 12));
+        let items = INodeM::make_nodes(24, 0, ms);
+
+        let mut os: Vec<Vec<usize>> = Vec::new();
+        for i in 0..2 {
+            for j in 0..2 {
+                os.push(vec![i, 8 + j, 12 + i + 1 - j, 15 + i + j]);
+                os.push(vec![10 + i, 2 + j, 12 + i + 1 - j, 18 + i + j]);
+                os.push(vec![4 + i, 8 + j, 21 + i + 1 - j, 18 + i + j]);
+                os.push(vec![10 + i, 6 + j, 21 + i + 1 - j, 15 + i + j]);
+            }
+        }
+        let opts = ONode::make_nodes(24, 16, 64, os);
+        verify_solutions(
+            items,
+            opts,
+            vec![
+                vec![0, 1, 5, 6, 8, 11, 14, 15],
+                vec![0, 2, 5, 7, 9, 11, 12, 14],
+                vec![0, 3, 6, 7, 8, 9, 13, 14],
+                vec![1, 2, 4, 5, 10, 11, 12, 15],
+                vec![1, 3, 4, 6, 8, 10, 13, 15],
+                vec![2, 3, 4, 7, 9, 10, 12, 13],
+            ],
+        );
     }
 }

@@ -1,6 +1,6 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
-use algorithm_m::links::{INode, INodes, ONode, ONodes};
+use algorithm_m::links::{INode, ONode};
 use algorithm_m::{IDance, Mrv, ODance, Problem};
 
 fn bench_dance(c: &mut Criterion) {
