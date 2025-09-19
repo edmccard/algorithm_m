@@ -27,8 +27,11 @@ pub struct INodes {
 
 impl INodes {
     fn get_node(&mut self, i: usize) -> &mut INode {
-        // &mut self.nodes[i]
-        unsafe { self.nodes.get_unchecked_mut(i) }
+	if cfg!(feature = "unsafe-fast-index") {
+            unsafe { self.nodes.get_unchecked_mut(i) }
+	} else {
+	    &mut self.nodes[i]
+	}
     }
 }
 
@@ -116,7 +119,11 @@ pub struct INodesM {
 
 impl INodesM {
     fn get_node(&mut self, i: usize) -> &mut INodeM {
-        unsafe { self.nodes.get_unchecked_mut(i) }
+	if cfg!(feature = "unsafe-fast-index") {
+            unsafe { self.nodes.get_unchecked_mut(i) }
+	} else {
+	    &mut self.nodes[i]
+	}
     }
 }
 
