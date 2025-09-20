@@ -1,15 +1,19 @@
 use crate::{IDance, ODance, OptSpec};
 
+pub type Link = usize;
+pub type Count = Link;
+pub type Data = isize;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct INode {
-    left: usize,
-    right: usize,
+    left: Link,
+    right: Link,
 }
 
 impl INode {
-    pub fn make_nodes(primary: usize, secondary: usize) -> INodes {
+    pub fn make_nodes(primary: Count, secondary: Count) -> INodes {
         let mut inodes = INodes {
-            nodes: vec![Default::default(); primary + secondary + 2],
+            nodes: vec![Default::default(); (primary + secondary + 2) as usize],
             primary,
             secondary,
         };
@@ -21,83 +25,83 @@ impl INode {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct INodes {
     nodes: Vec<INode>,
-    primary: usize,
-    secondary: usize,
+    primary: Count,
+    secondary: Count,
 }
 
 impl INodes {
-    fn get_node(&mut self, i: usize) -> &mut INode {
+    fn get_node(&mut self, i: Link) -> &mut INode {
         if cfg!(feature = "unsafe-fast-index") {
-            unsafe { self.nodes.get_unchecked_mut(i) }
+            unsafe { self.nodes.get_unchecked_mut(i as usize) }
         } else {
-            &mut self.nodes[i]
+            &mut self.nodes[i as usize]
         }
     }
 }
 
 impl IDance for INodes {
     #[inline(always)]
-    fn primary(&self) -> usize {
+    fn primary(&self) -> Count {
         self.primary
     }
 
     #[inline(always)]
-    fn secondary(&self) -> usize {
+    fn secondary(&self) -> Count {
         self.secondary
     }
 
     #[inline(always)]
-    fn llink(&mut self, i: usize) -> &mut usize {
+    fn llink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).left
     }
     #[inline(always)]
-    fn rlink(&mut self, i: usize) -> &mut usize {
+    fn rlink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).right
     }
 
     #[inline(always)]
-    fn bound(&mut self, _i: usize) -> isize {
+    fn bound(&mut self, _i: Link) -> Data {
         0
     }
 
     #[inline(always)]
-    fn dec_bound(&mut self, _i: usize) -> isize {
+    fn dec_bound(&mut self, _i: Link) -> Data {
         0
     }
 
     #[inline(always)]
-    fn inc_bound(&mut self, _i: usize) -> isize {
+    fn inc_bound(&mut self, _i: Link) -> Data {
         1
     }
 
     #[inline(always)]
-    fn slack(&mut self, _i: usize) -> isize {
+    fn slack(&mut self, _i: Link) -> Data {
         0
     }
 
     #[inline(always)]
-    fn branch_factor(&mut self, _i: usize) -> isize {
+    fn branch_factor(&mut self, _i: Link) -> Data {
         1
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct INodeM {
-    left: usize,
-    right: usize,
-    slack: isize,
-    bound: isize,
+    left: Link,
+    right: Link,
+    slack: Data,
+    bound: Data,
 }
 
 impl INodeM {
     pub fn make_nodes(
-        primary: usize,
-        secondary: usize,
-        ms: impl IntoIterator<Item = (isize, isize)>,
+        primary: Count,
+        secondary: Count,
+        ms: impl IntoIterator<Item = (Data, Data)>,
     ) -> INodesM {
         let n = primary + secondary;
         let mut inodes = INodesM {
-            nodes: vec![Default::default(); n + 2],
+            nodes: vec![Default::default(); (n + 2) as usize],
             primary,
             secondary,
         };
@@ -113,88 +117,89 @@ impl INodeM {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct INodesM {
     nodes: Vec<INodeM>,
-    primary: usize,
-    secondary: usize,
+    primary: Count,
+    secondary: Count,
 }
 
 impl INodesM {
-    fn get_node(&mut self, i: usize) -> &mut INodeM {
+    fn get_node(&mut self, i: Link) -> &mut INodeM {
         if cfg!(feature = "unsafe-fast-index") {
-            unsafe { self.nodes.get_unchecked_mut(i) }
+            unsafe { self.nodes.get_unchecked_mut(i as usize) }
         } else {
-            &mut self.nodes[i]
+            &mut self.nodes[i as usize]
         }
     }
 }
 
 impl IDance for INodesM {
-    fn primary(&self) -> usize {
+    fn primary(&self) -> Count {
         self.primary
     }
 
-    fn secondary(&self) -> usize {
+    fn secondary(&self) -> Count {
         self.secondary
     }
 
-    fn llink(&mut self, i: usize) -> &mut usize {
+    fn llink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).left
     }
 
-    fn rlink(&mut self, i: usize) -> &mut usize {
+    fn rlink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).right
     }
 
-    fn bound(&mut self, i: usize) -> isize {
+    fn bound(&mut self, i: Link) -> Data {
         self.get_node(i).bound
     }
 
-    fn dec_bound(&mut self, i: usize) -> isize {
+    fn dec_bound(&mut self, i: Link) -> Data {
         let node = self.get_node(i);
         node.bound -= 1;
         node.bound
     }
 
-    fn inc_bound(&mut self, i: usize) -> isize {
+    fn inc_bound(&mut self, i: Link) -> Data {
         let node = self.get_node(i);
         node.bound += 1;
         node.bound
     }
 
-    fn slack(&mut self, i: usize) -> isize {
+    fn slack(&mut self, i: Link) -> Data {
         self.get_node(i).slack
     }
 
-    fn branch_factor(&mut self, i: usize) -> isize {
+    fn branch_factor(&mut self, i: Link) -> Data {
         let node = self.get_node(i);
         node.bound.saturating_sub(node.slack)
     }
 }
 
-impl OptSpec for usize {
-    fn get_item(&self) -> usize {
+impl OptSpec for Count {
+    fn get_item(&self) -> Count {
         *self
     }
-    fn get_color(&self) -> isize {
+    fn get_color(&self) -> Data {
         0
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ONode {
-    hdr_info: isize,
-    up: usize,
-    down: usize,
+    hdr_info: Data,
+    up: Link,
+    down: Link,
 }
 
 impl ONode {
     pub fn make_nodes(
-        n: usize,
-        m: usize,
-        l: usize,
-        opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = usize>>,
+        n: Count,
+        m: Count,
+        l: Count,
+        opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = Count>>,
     ) -> ONodes {
-        let mut nodes =
-            ONodes { nodes: vec![Default::default(); l + m + n + 2] };
+        let mut nodes = ONodes {
+            nodes: vec![Default::default(); (l + m + n + 2) as usize],
+        };
         nodes.init_links(n, opt_spec);
         nodes
     }
@@ -206,70 +211,70 @@ pub struct ONodes {
 }
 
 impl ONodes {
-    fn get_node(&mut self, i: usize) -> &mut ONode {
-        unsafe { self.nodes.get_unchecked_mut(i) }
+    fn get_node(&mut self, i: Link) -> &mut ONode {
+        unsafe { self.nodes.get_unchecked_mut(i as usize) }
     }
 }
 
 impl ODance for ONodes {
-    type Spec = usize;
+    type Spec = Count;
 
     #[inline(always)]
-    fn olen(&mut self, i: usize) -> &mut isize {
+    fn olen(&mut self, i: Link) -> &mut Data {
         &mut self.get_node(i).hdr_info
     }
 
     #[inline(always)]
-    fn top(&mut self, i: usize) -> &mut isize {
+    fn top(&mut self, i: Link) -> &mut Data {
         &mut self.get_node(i).hdr_info
     }
 
     #[inline(always)]
-    fn ulink(&mut self, i: usize) -> &mut usize {
+    fn ulink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).up
     }
 
     #[inline(always)]
-    fn dlink(&mut self, i: usize) -> &mut usize {
+    fn dlink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).down
     }
 
     #[inline(always)]
-    fn get_color(&mut self, _i: usize) -> isize {
+    fn get_color(&mut self, _i: Link) -> Data {
         0
     }
 
     #[inline(always)]
-    fn set_color(&mut self, _i: usize, _c: isize) {}
+    fn set_color(&mut self, _i: Link, _c: Data) {}
 }
 
-impl OptSpec for (usize, isize) {
-    fn get_item(&self) -> usize {
+impl OptSpec for (Count, Data) {
+    fn get_item(&self) -> Count {
         self.0
     }
-    fn get_color(&self) -> isize {
+    fn get_color(&self) -> Data {
         self.1
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ONodeC {
-    hdr_info: isize,
-    up: usize,
-    down: usize,
-    color: isize,
+    hdr_info: Data,
+    up: Link,
+    down: Link,
+    color: Data,
 }
 
 impl ONodeC {
     pub fn make_nodes(
-        n: usize,
-        m: usize,
-        l: usize,
-        opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = (usize, isize)>>,
+        n: Count,
+        m: Count,
+        l: Count,
+        opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = (Count, Data)>>,
     ) -> ONodesC {
         let mut nodes = ONodesC {
             n_opts: m,
-            nodes: vec![Default::default(); l + m + n + 2],
+            nodes: vec![Default::default(); (l + m + n + 2) as usize],
         };
         nodes.init_links(n, opt_spec);
         nodes
@@ -279,12 +284,12 @@ impl ONodeC {
 #[derive(Clone, Debug)]
 pub struct ONodesC {
     nodes: Vec<ONodeC>,
-    n_opts: usize,
+    n_opts: Count,
 }
 
 impl ONodesC {
-    fn get_node(&mut self, i: usize) -> &mut ONodeC {
-        unsafe { self.nodes.get_unchecked_mut(i) }
+    fn get_node(&mut self, i: Link) -> &mut ONodeC {
+        unsafe { self.nodes.get_unchecked_mut(i as usize) }
     }
 }
 
@@ -294,33 +299,37 @@ impl PartialEq for ONodesC {
             return false;
         }
         let n = self.n_opts + 2;
-        let a_hdrs = self.nodes[..n].iter().map(|o| (o.hdr_info, o.up, o.down));
-        let b_hdrs =
-            other.nodes[..n].iter().map(|o| (o.hdr_info, o.up, o.down));
-        self.nodes[n..] == other.nodes[n..] && a_hdrs.eq(b_hdrs)
+        let a_hdrs = self.nodes[..n as usize]
+            .iter()
+            .map(|o| (o.hdr_info, o.up, o.down));
+        let b_hdrs = other.nodes[..n as usize]
+            .iter()
+            .map(|o| (o.hdr_info, o.up, o.down));
+        self.nodes[n as usize..] == other.nodes[n as usize..]
+            && a_hdrs.eq(b_hdrs)
     }
 }
 
 impl ODance for ONodesC {
-    type Spec = (usize, isize);
+    type Spec = (Count, Data);
 
-    fn olen(&mut self, i: usize) -> &mut isize {
+    fn olen(&mut self, i: Link) -> &mut Data {
         &mut self.get_node(i).hdr_info
     }
-    fn top(&mut self, i: usize) -> &mut isize {
+    fn top(&mut self, i: Link) -> &mut Data {
         &mut self.get_node(i).hdr_info
     }
-    fn ulink(&mut self, i: usize) -> &mut usize {
+    fn ulink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).up
     }
-    fn dlink(&mut self, i: usize) -> &mut usize {
+    fn dlink(&mut self, i: Link) -> &mut Link {
         &mut self.get_node(i).down
     }
 
-    fn get_color(&mut self, i: usize) -> isize {
+    fn get_color(&mut self, i: Link) -> Data {
         self.get_node(i).color
     }
-    fn set_color(&mut self, i: usize, c: isize) {
+    fn set_color(&mut self, i: Link, c: Data) {
         self.get_node(i).color = c;
     }
 }
@@ -344,7 +353,7 @@ mod tests {
         ];
         assert_eq!(items.nodes, inodes, "incorrect items");
 
-        let opt_spec: Vec<Vec<(usize, isize)>> = vec![
+        let opt_spec: Vec<Vec<(Count, Data)>> = vec![
             vec![(0, 0), (1, 0), (3, 0), (4, 1)],
             vec![(0, 0), (2, 0), (3, 1), (4, 0)],
             vec![(0, 0), (3, 2)],

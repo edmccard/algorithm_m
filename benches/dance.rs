@@ -1,11 +1,11 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use algorithm_m::links::{INode, ONode};
+use algorithm_m::links::{Count, INode, ONode};
 use algorithm_m::{IDance, Mrv, ODance, Problem};
 
 fn bench_dance(c: &mut Criterion) {
     let items = INode::make_nodes(7, 0);
-    let os: Vec<Vec<usize>> = vec![
+    let os: Vec<Vec<Count>> = vec![
         vec![2, 4],
         vec![0, 3, 6],
         vec![1, 2, 5],
