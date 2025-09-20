@@ -1,8 +1,5 @@
-use crate::{IDance, ODance, OptSpec};
-
-pub type Link = usize;
-pub type Count = Link;
-pub type Data = isize;
+#![allow(clippy::unnecessary_cast)]
+use crate::{Items, ODance, OptSpec, Link, Count, Data};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct INode {
@@ -12,6 +9,8 @@ pub struct INode {
 
 impl INode {
     pub fn make_nodes(primary: Count, secondary: Count) -> INodes {
+        assert!((primary as u64) < Data::MAX as u64);
+        assert!((secondary as u64) < Data::MAX as u64);
         let mut inodes = INodes {
             nodes: vec![Default::default(); (primary + secondary + 2) as usize],
             primary,
@@ -39,7 +38,7 @@ impl INodes {
     }
 }
 
-impl IDance for INodes {
+impl Items for INodes {
     #[inline(always)]
     fn primary(&self) -> Count {
         self.primary
@@ -99,6 +98,8 @@ impl INodeM {
         secondary: Count,
         ms: impl IntoIterator<Item = (Data, Data)>,
     ) -> INodesM {
+        assert!((primary as u64) < Data::MAX as u64);
+        assert!((secondary as u64) < Data::MAX as u64);
         let n = primary + secondary;
         let mut inodes = INodesM {
             nodes: vec![Default::default(); (n + 2) as usize],
@@ -131,7 +132,7 @@ impl INodesM {
     }
 }
 
-impl IDance for INodesM {
+impl Items for INodesM {
     fn primary(&self) -> Count {
         self.primary
     }
@@ -192,15 +193,19 @@ pub struct ONode {
 
 impl ONode {
     pub fn make_nodes(
-        n: Count,
+        np: Count,
+	ns: Count,
         m: Count,
         l: Count,
         opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = Count>>,
     ) -> ONodes {
+	assert!((m as u64) < Data::MAX as u64);
+	let n = np + ns;
         let mut nodes = ONodes {
             nodes: vec![Default::default(); (l + m + n + 2) as usize],
+            size: m,
         };
-        nodes.init_links(n, opt_spec);
+        nodes.init_links(np, ns, opt_spec);
         nodes
     }
 }
@@ -208,6 +213,7 @@ impl ONode {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ONodes {
     nodes: Vec<ONode>,
+    size: Count,
 }
 
 impl ONodes {
@@ -246,6 +252,10 @@ impl ODance for ONodes {
 
     #[inline(always)]
     fn set_color(&mut self, _i: Link, _c: Data) {}
+
+    fn size(&self) -> Count {
+        self.size
+    }
 }
 
 impl OptSpec for (Count, Data) {
@@ -267,16 +277,19 @@ pub struct ONodeC {
 
 impl ONodeC {
     pub fn make_nodes(
-        n: Count,
+        np: Count,
+	ns: Count,
         m: Count,
         l: Count,
         opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = (Count, Data)>>,
     ) -> ONodesC {
+	assert!((m as u64) < Data::MAX as u64);
+	let n = np + ns;
         let mut nodes = ONodesC {
-            n_opts: m,
+            size: m,
             nodes: vec![Default::default(); (l + m + n + 2) as usize],
         };
-        nodes.init_links(n, opt_spec);
+        nodes.init_links(np, ns, opt_spec);
         nodes
     }
 }
@@ -284,7 +297,7 @@ impl ONodeC {
 #[derive(Clone, Debug)]
 pub struct ONodesC {
     nodes: Vec<ONodeC>,
-    n_opts: Count,
+    size: Count,
 }
 
 impl ONodesC {
@@ -295,10 +308,10 @@ impl ONodesC {
 
 impl PartialEq for ONodesC {
     fn eq(&self, other: &Self) -> bool {
-        if self.n_opts != other.n_opts {
+        if self.size != other.size {
             return false;
         }
-        let n = self.n_opts + 2;
+        let n = self.size + 2;
         let a_hdrs = self.nodes[..n as usize]
             .iter()
             .map(|o| (o.hdr_info, o.up, o.down));
@@ -332,6 +345,10 @@ impl ODance for ONodesC {
     fn set_color(&mut self, i: Link, c: Data) {
         self.get_node(i).color = c;
     }
+
+    fn size(&self) -> Count {
+        self.size
+    }
 }
 
 #[cfg(test)]
@@ -360,7 +377,7 @@ mod tests {
             vec![(1, 0), (3, 1)],
             vec![(2, 0), (4, 2)],
         ];
-        let opts = ONodeC::make_nodes(5, 5, 14, opt_spec);
+        let opts = ONodeC::make_nodes(3, 2, 5, 14, opt_spec);
         let onodes = vec![
             ONodeC { hdr_info: 0, up: 0, down: 0, color: 0 },
             ONodeC { hdr_info: 3, up: 17, down: 7, color: 0 },

@@ -1,10 +1,25 @@
+pub mod choose;
+pub mod items;
 pub mod links;
 
-use links::{Count, Data, Link};
+use choose::Choose;
+use items::Items;
+
+pub type Link = usize;
+pub type Count = Link;
+pub type Data = isize;
+
+const _: () = {
+    assert!(Link::MAX as u128 <= u64::MAX as u128);
+    assert!(Count::MAX as u128 <= u64::MAX as u128);
+    assert!(Data::MAX as u128 <= u64::MAX as u128);
+    assert!(Data::MAX as u128 <= Count::MAX as u128);
+    assert!(Data::MAX as u128 <= Link::MAX as u128);
+};
 
 pub struct Problem<I, O>
 where
-    I: IDance,
+    I: Items,
     O: ODance,
 {
     items: I,
@@ -20,7 +35,7 @@ where
 
 impl<I, O> Problem<I, O>
 where
-    I: IDance,
+    I: Items,
     O: ODance,
 {
     pub fn new(items: I, opts: O) -> Problem<I, O> {
@@ -37,7 +52,8 @@ where
         }
     }
 
-    pub fn next_solution<C: Choose<I, O>>(&mut self, chooser: &mut C) -> bool {
+    #[allow(clippy::unnecessary_cast)]
+    pub fn next_solution<C: Choose<I>>(&mut self, chooser: &mut C) -> bool {
         let mut l = self.l;
         let mut i = self.i;
         if self.updates < 0 {
@@ -138,6 +154,7 @@ where
         }
     }
 
+    #[allow(clippy::unnecessary_cast)]
     pub fn find_options(&mut self) {
         let n = self.items.primary() + self.items.secondary();
         self.o.clear();
@@ -204,10 +221,9 @@ where
     fn restore_item(&mut self, i: Link, ftl: Link, n: Count) {
         if self.items.bound(i) == 0 && self.items.slack(i) == 0 {
             self.uncover(i);
-        } else if self.items.bound(i) == 0 {
-            self.untweak_b(ftl, n);
         } else {
-            self.untweak(ftl, n);
+            let unblock = self.items.bound(i) != 0;
+            self.untweak(ftl, n, unblock);
         }
         self.items.inc_bound(i);
     }
@@ -334,7 +350,7 @@ where
         *self.opts.olen(p) -= 1;
     }
 
-    fn untweak(&mut self, ftl: Link, n: Count) {
+    fn untweak(&mut self, ftl: Link, n: Count, unblock: bool) {
         let p = if ftl <= n {
             ftl
         } else {
@@ -348,63 +364,17 @@ where
         while x != z {
             *self.opts.ulink(x) = y;
             k += 1;
-            self.unhide(x);
+            if unblock {
+                self.unhide(x);
+            }
             y = x;
             x = *self.opts.dlink(x);
         }
         *self.opts.ulink(z) = y;
         *self.opts.olen(p) += k;
-    }
-
-    fn untweak_b(&mut self, ftl: Link, n: Count) {
-        let p = if ftl <= n {
-            ftl
-        } else {
-            *self.opts.top(ftl) as Link
-        };
-        let mut x = ftl;
-        let mut y = p;
-        let z = *self.opts.dlink(p);
-        *self.opts.dlink(p) = x;
-        let mut k = 0;
-        while x != z {
-            *self.opts.ulink(x) = y;
-            k += 1;
-            y = x;
-            x = *self.opts.dlink(x);
+        if !unblock {
+            self.uncover(p);
         }
-        *self.opts.ulink(z) = y;
-        *self.opts.olen(p) += k;
-        self.uncover(p);
-    }
-}
-
-pub trait IDance {
-    fn primary(&self) -> Count;
-    fn secondary(&self) -> Count;
-
-    fn llink(&mut self, i: Link) -> &mut Link;
-    fn rlink(&mut self, i: Link) -> &mut Link;
-
-    fn bound(&mut self, i: Link) -> Data;
-    fn dec_bound(&mut self, i: Link) -> Data;
-    fn inc_bound(&mut self, i: Link) -> Data;
-    fn slack(&mut self, i: Link) -> Data;
-    fn branch_factor(&mut self, i: Link) -> Data;
-
-    fn init_links(&mut self) {
-        let n1 = self.primary();
-        let n = self.primary() + self.secondary();
-        for i in (1 as Link)..=n {
-            *self.llink(i) = i - 1;
-            *self.rlink(i - 1) = i;
-        }
-        *self.llink(n + 1) = n;
-        *self.rlink(n) = n + 1;
-        *self.llink(n1 + 1) = n + 1;
-        *self.rlink(n + 1) = n1 + 1;
-        *self.llink(0) = n1;
-        *self.rlink(n1) = 0;
     }
 }
 
@@ -424,12 +394,16 @@ pub trait ODance {
     fn get_color(&mut self, i: Link) -> Data;
     fn set_color(&mut self, i: Link, c: Data);
 
+    fn size(&self) -> Count;
+
     // TODO: allow for randomization
     fn init_links(
         &mut self,
-        n: Count,
+        np: Count,
+        ns: Count,
         opt_spec: impl IntoIterator<Item = impl IntoIterator<Item = Self::Spec>>,
     ) {
+        let n = np + ns;
         for i in (1 as Link)..=n {
             *self.ulink(i) = i;
             *self.dlink(i) = i;
@@ -439,6 +413,7 @@ pub trait ODance {
         for opts in opt_spec.into_iter() {
             let mut k = 0;
             for opt in opts.into_iter() {
+                // TODO: get_item <= Data::MAX
                 // Internal item numbers are 1-based.
                 let ij = opt.get_item() + 1;
                 k += 1;
@@ -449,7 +424,7 @@ pub trait ODance {
                 *self.dlink(p + k) = ij;
                 *self.ulink(ij) = p + k;
                 *self.top(p + k) = ij as Data;
-                let c = opt.get_color();
+                let c = if ij > np { opt.get_color() } else { 0 };
                 self.set_color(p + k, c);
             }
             m += 1;
@@ -461,50 +436,21 @@ pub trait ODance {
     }
 }
 
-// TODO: preferences and randomization
-pub trait Choose<I: IDance, O: ODance> {
-    fn choose(&mut self, items: &mut I, opts: &mut O) -> Link;
-}
-
-pub struct Mrv {}
-
-impl<I: IDance, O: ODance> Choose<I, O> for Mrv {
-    fn choose(&mut self, items: &mut I, opts: &mut O) -> Link {
-        let mut min = Data::MAX;
-        let mut p = *items.rlink(0);
-        let mut i = p;
-        while p != 0 {
-            let curr =
-                (*opts.olen(p) + 1).saturating_sub(items.branch_factor(p));
-            if curr < min
-            // TODO: check if this always increases update count
-            // || (curr == min && items.slack(p) < items.slack(i))
-            // || (curr == min
-            //     && items.slack(p) == items.slack(i)
-            //     && *opts.olen(p) > *opts.olen(i))
-            {
-                min = curr;
-                i = p;
-            }
-            p = *items.rlink(p);
-        }
-        i
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::choose::*;
     use super::links::*;
     use super::*;
 
     fn verify_solutions<I, O>(items: I, opts: O, expected: Vec<Vec<isize>>)
     where
-        I: IDance + Clone + std::fmt::Debug + PartialEq,
+        I: Items + Clone + std::fmt::Debug + PartialEq,
         O: ODance + Clone + std::fmt::Debug + PartialEq,
     {
         let items_init = items.clone();
         let opts_init = opts.clone();
-        let mut chooser = Mrv {};
+        let mut chooser =
+            MRVChooser::new(choose::no_preference(), choose::first_wins());
         let mut problem = Problem::new(items, opts);
         let mut solutions: Vec<Vec<isize>> = Vec::new();
         let mut i: usize = 0;
@@ -539,7 +485,7 @@ mod tests {
             vec![1, 6],
             vec![3, 4, 6],
         ];
-        let opts = ONode::make_nodes(7, 6, 16, opt_spec);
+        let opts = ONode::make_nodes(7, 0, 6, 16, opt_spec);
         verify_solutions(items, opts, vec![vec![0, 3, 4]]);
     }
 
@@ -554,7 +500,7 @@ mod tests {
             vec![(1, 0), (3, 1)],
             vec![(2, 0), (4, 2)],
         ];
-        let opts = ONodeC::make_nodes(5, 5, 14, opt_spec);
+        let opts = ONodeC::make_nodes(3, 2, 5, 14, opt_spec);
         verify_solutions(items, opts, vec![vec![1, 3]]);
     }
 
@@ -576,7 +522,7 @@ mod tests {
                 os.push(vec![10 + i, 6 + j, 21 + i + 1 - j, 15 + i + j]);
             }
         }
-        let opts = ONode::make_nodes(24, 16, 64, os);
+        let opts = ONode::make_nodes(24, 0, 16, 64, os);
         verify_solutions(
             items,
             opts,

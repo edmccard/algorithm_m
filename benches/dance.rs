@@ -1,7 +1,9 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use algorithm_m::links::{Count, INode, ONode};
-use algorithm_m::{IDance, Mrv, ODance, Problem};
+use algorithm_m::choose::{Choose, FirstWins, MRVChooser, NoPreference};
+use algorithm_m::links::{INode, INodes, ONode};
+use algorithm_m::items::Items;
+use algorithm_m::{Count, ODance, Problem};
 
 fn bench_dance(c: &mut Criterion) {
     let items = INode::make_nodes(7, 0);
@@ -13,8 +15,9 @@ fn bench_dance(c: &mut Criterion) {
         vec![1, 6],
         vec![3, 4, 6],
     ];
-    let opts = ONode::make_nodes(7, 6, 16, os);
-    let mut chooser = Mrv {};
+    let opts = ONode::make_nodes(7, 0, 6, 16, os);
+    let tiebreak: FirstWins<INodes> = FirstWins::new();
+    let mut chooser = MRVChooser::new(NoPreference(), tiebreak);
     let mut problem = Problem::new(items, opts);
 
     c.bench_function("dance", |b| {
@@ -24,9 +27,9 @@ fn bench_dance(c: &mut Criterion) {
     });
 }
 
-fn solve<I: IDance, O: ODance>(
+fn solve<I: Items, O: ODance, C: Choose<I>>(
     problem: &mut Problem<I, O>,
-    chooser: &mut Mrv,
+    chooser: &mut C,
 ) -> usize {
     let mut i = 0;
     while problem.next_solution(chooser) {
